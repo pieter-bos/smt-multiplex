@@ -23,7 +23,7 @@ pub enum Token {
     ParenClose,
 
     Underscore,
-    ExlamationPoint,
+    ExclamationPoint,
 
     Symbol(String),
     Keyword(String),
@@ -371,7 +371,7 @@ impl<R: Read> TokenReader<R> {
 
         match self.read()? {
             '_' => Some(Token::Underscore),
-            '!' => Some(Token::ExlamationPoint),
+            '!' => Some(Token::ExclamationPoint),
             '(' => Some(Token::ParenOpen),
             ')' => Some(Token::ParenClose),
             '0' => self.read_maybe_decimal_continuation("0".into()),
