@@ -1,4 +1,5 @@
 use std::io::Read;
+use std::process::Command;
 use std::result;
 use bigdecimal::BigDecimal;
 use bit_vec::BitVec;
@@ -229,19 +230,12 @@ impl <R: Read> Parser<R> {
         })
     }
 
-    pub fn underscore(&mut self) -> Result<()> {
-        let ctx = self.ctx("underscore");
-        self.peek(|tok| match tok {
-            Token::Underscore => (Ok(Ok(())), Consumed),
-            _ => (Ok(Err(RecoverableParseError::WrongStartToken { rule: ctx.rule, token: tok.clone(), loc: ctx.loc })), Unread(tok))
-        })
-    }
-
-    pub fn exclamation_point(&mut self) -> Result<()> {
-        let ctx = self.ctx("paren_close");
-        self.peek(|tok| match tok {
-            Token::ExclamationPoint => (Ok(Ok(())), Consumed),
-            _ => (Ok(Err(RecoverableParseError::WrongStartToken { rule: ctx.rule, token: tok.clone(), loc: ctx.loc })), Unread(tok))
+    pub fn exactly(&mut self, expect: Token) -> Result<()> {
+        let ctx = self.ctx("<token>");
+        self.peek(|tok| if(tok == expect) {
+            (Ok(Ok(())), Consumed)
+        } else {
+            (Ok(Err(RecoverableParseError::WrongStartToken { rule: ctx.rule, token: tok.clone(), loc: ctx.loc })), Unread(tok))
         })
     }
 
@@ -306,17 +300,22 @@ impl <R: Read> Parser<R> {
         ])
     }
 
+    pub fn indexed_identifier_completion(&mut self) -> Result<Identifier> {
+        let ctx = self.ctx("indexed_identifier_completion");
+        let name = then_expect!(ctx, self.symbol());
+        let indices = then_expect!(ctx, self.plus(&|this: &mut Self| this.index()));
+        then_expect!(ctx, self.paren_close());
+        Ok(Ok(Identifier::Indexed(name, indices)))
+    }
+
     pub fn identifier(&mut self) -> Result<Identifier> {
         let ctx = self.ctx("identifier");
         self.alts(ctx, vec![
             &|this: &mut Self| { let name = expect!(ctx, this.symbol()); Ok(Ok(Identifier::Simple(name))) },
             &|this: &mut Self| {
                 expect!(ctx, this.paren_open());
-                then_expect!(ctx, this.underscore());
-                let name = then_expect!(ctx, this.symbol());
-                let indices = then_expect!(ctx, this.plus(&|this: &mut Self| this.index()));
-                then_expect!(ctx, this.paren_close());
-                Ok(Ok(Identifier::Indexed(name, indices)))
+                then_expect!(ctx, this.exactly(Token::ExclamationPoint));
+                this.indexed_identifier_completion()
             },
         ])
     }
@@ -354,5 +353,240 @@ impl <R: Read> Parser<R> {
                 Ok(Ok(Sort::Parametric(name, args)))
             }
         ])
+    }
+
+    pub fn qual_identifier_completion(&mut self) -> Result<QualifiedIdentifier> {
+        let ctx = self.ctx("qual_identifier_completion");
+        let name = then_expect!(ctx, self.identifier());
+        let sort = then_expect!(ctx, self.sort());
+        then_expect!(ctx, self.paren_close());
+        Ok(Ok(QualifiedIdentifier::Qualified(name, sort)))
+    }
+
+    pub fn qual_identifier(&mut self) -> Result<QualifiedIdentifier> {
+        let ctx = self.ctx("qual_identifier");
+        self.alts(ctx, vec![
+            &|this: &mut Self| { let id = expect!(ctx, this.identifier()); Ok(Ok(QualifiedIdentifier::Simple(id))) },
+            &|this: &mut Self| {
+                expect!(ctx, this.paren_open());
+                then_expect!(ctx, this.exactly(Token::As));
+                this.qual_identifier_completion()
+            },
+        ])
+    }
+
+    pub fn var_binding(&mut self) -> Result<VarBinding> {
+        let ctx = self.ctx("var_binding");
+        expect!(ctx, self.paren_open());
+        let name = then_expect!(ctx, self.symbol());
+        let value = then_expect!(ctx, self.term());
+        then_expect!(ctx, self.paren_close());
+        Ok(Ok(VarBinding { name, value }))
+    }
+
+    pub fn sorted_var(&mut self) -> Result<SortedVar> {
+        let ctx = self.ctx("sorted_var");
+        expect!(ctx, self.paren_open());
+        let name = then_expect!(ctx, self.symbol());
+        let sort = then_expect!(ctx, self.sort());
+        then_expect!(ctx, self.paren_close());
+        Ok(Ok(SortedVar { name, sort }))
+    }
+
+    pub fn pattern(&mut self) -> Result<Pattern> {
+        let ctx = self.ctx("pattern");
+        self.alts(ctx, vec![
+            &|this: &mut Self| { let name = expect!(ctx, this.symbol()); Ok(Ok(Pattern::Binding(name))) },
+            &|this: &mut Self| {
+                expect!(ctx, this.paren_open());
+                let function = then_expect!(ctx, this.symbol());
+                let args = then_expect!(ctx, this.plus(&|this: &mut Self| this.symbol()));
+                then_expect!(ctx, this.paren_close());
+                Ok(Ok(Pattern::Application { function, args }))
+            },
+        ])
+    }
+
+    pub fn match_case(&mut self) -> Result<MatchCase> {
+        let ctx = self.ctx("match_case");
+        expect!(ctx, self.paren_open());
+        let pattern = then_expect!(ctx, self.pattern());
+        let result = then_expect!(ctx, self.term());
+        then_expect!(ctx, self.paren_close());
+        Ok(Ok(MatchCase { pattern, result }))
+    }
+
+    pub fn term(&mut self) -> Result<Term> {
+        let ctx = self.ctx("term");
+        self.alts(ctx, vec![
+            &|this: &mut Self| { let c = expect!(ctx, this.spec_constant()); Ok(Ok(Term::Const(c))) },
+            &|this: &mut Self| { let name = expect!(ctx, this.symbol()); Ok(Ok(Term::Name(QualifiedIdentifier::Simple(Identifier::Simple(name))))) },
+            &|this: &mut Self| {
+                expect!(ctx, this.paren_open());
+                let result = this.alts(ctx, vec![
+                    &|this: &mut Self| {
+                        expect!(ctx, this.exactly(Token::Underscore));
+                        let id = then_expect!(ctx, this.indexed_identifier_completion());
+                        Ok(Ok(Term::Name(QualifiedIdentifier::Simple(id))))
+                    },
+                    &|this: &mut Self| {
+                        expect!(ctx, this.exactly(Token::As));
+                        let id = then_expect!(ctx, this.qual_identifier_completion());
+                        Ok(Ok(Term::Name(id)))
+                    },
+                    &|this: &mut Self| {
+                        let function = expect!(ctx, this.qual_identifier());
+                        let args = then_expect!(ctx, this.plus(&|this: &mut Self| this.term()));
+                        Ok(Ok(Term::Apply { function, args }))
+                    },
+                    &|this: &mut Self| {
+                        expect!(ctx, this.exactly(Token::Let));
+                        then_expect!(ctx, this.paren_open());
+                        let bindings = then_expect!(ctx, this.plus(&|this: &mut Self| this.var_binding()));
+                        then_expect!(ctx, this.paren_close());
+                        let body = then_expect!(ctx, this.term());
+                        Ok(Ok(Term::Let { bindings, body: Box::new(body) }))
+                    },
+                    &|this: &mut Self| {
+                        expect!(ctx, this.exactly(Token::Forall));
+                        then_expect!(ctx, this.paren_open());
+                        let bindings = then_expect!(ctx, this.plus(&|this: &mut Self| this.sorted_var()));
+                        then_expect!(ctx, this.paren_close());
+                        let body = then_expect!(ctx, this.term());
+                        Ok(Ok(Term::Forall { bindings, body: Box::new(body) }))
+                    },
+                    &|this: &mut Self| {
+                        expect!(ctx, this.exactly(Token::Exists));
+                        then_expect!(ctx, this.paren_open());
+                        let bindings = then_expect!(ctx, this.plus(&|this: &mut Self| this.sorted_var()));
+                        then_expect!(ctx, this.paren_close());
+                        let body = then_expect!(ctx, this.term());
+                        Ok(Ok(Term::Exists { bindings, body: Box::new(body) }))
+                    },
+                    &|this: &mut Self| {
+                        expect!(ctx, this.exactly(Token::Match));
+                        let term = then_expect!(ctx, this.term());
+                        then_expect!(ctx, this.paren_open());
+                        let cases = then_expect!(ctx, this.plus(&|this: &mut Self| this.match_case()));
+                        then_expect!(ctx, this.paren_close());
+                        Ok(Ok(Term::Match { term: Box::new(term), cases }))
+                    },
+                    &|this: &mut Self| {
+                        expect!(ctx, this.exactly(Token::ExclamationPoint));
+                        let term = then_expect!(ctx, this.term());
+                        let attributes = then_expect!(ctx, this.plus(&|this: &mut Self| this.attribute()));
+                        Ok(Ok(Term::Attributed { term: Box::new(term), attributes }))
+                    },
+                ]);
+                then_expect!(ctx, this.paren_close());
+                result
+            },
+        ])
+    }
+
+    pub fn sort_dec(&mut self) -> Result<SortDec> {
+        let ctx = self.ctx("sort_dec");
+        expect!(ctx, self.paren_open());
+        let name = then_expect!(ctx, self.symbol());
+        let idx = then_expect!(ctx, self.numeral());
+        then_expect!(ctx, self.paren_close());
+        Ok(Ok(SortDec { name, idx }))
+    }
+
+    pub fn selector_dec(&mut self) -> Result<SelectorDec> {
+        let ctx = self.ctx("selector_dec");
+        expect!(ctx, self.paren_open());
+        let name = then_expect!(ctx, self.symbol());
+        let sort = then_expect!(ctx, self.sort());
+        then_expect!(ctx, self.paren_close());
+        Ok(Ok(SelectorDec { name, sort }))
+    }
+
+    pub fn constructor_dec(&mut self) -> Result<ConstructorDec> {
+        let ctx = self.ctx("constructor_dec");
+        expect!(ctx, self.paren_open());
+        let name = then_expect!(ctx, self.symbol());
+        let selectors = then_expect!(ctx, self.star(&|this: &mut Self| this.selector_dec()));
+        then_expect!(ctx, self.paren_close());
+        Ok(Ok(ConstructorDec { name, selectors }))
+    }
+
+    pub fn datatype_dec(&mut self) -> Result<DatatypeDec> {
+        let ctx = self.ctx("datatype_dec");
+        expect!(ctx, self.paren_open());
+        let result = then_expect!(ctx, self.alts(ctx, vec![
+            &|this: &mut Self| {
+                let constructors = expect!(ctx, this.plus(&|this: &mut Self| this.constructor_dec()));
+                Ok(Ok(DatatypeDec { params: vec![], constructors }))
+            },
+            &|this: &mut Self| {
+                expect!(ctx, this.exactly(Token::Par));
+                then_expect!(ctx, this.paren_open());
+                let params = then_expect!(ctx, this.plus(&|this: &mut Self| this.symbol()));
+                then_expect!(ctx, this.paren_close());
+                then_expect!(ctx, this.paren_open());
+                let constructors = then_expect!(ctx, this.plus(&|this: &mut Self| this.constructor_dec()));
+                then_expect!(ctx, this.paren_close());
+                Ok(Ok(DatatypeDec { params, constructors }))
+            },
+        ]));
+        then_expect!(ctx, self.paren_close());
+        Ok(Ok(result))
+    }
+
+    pub fn function_dec_inner(&mut self) -> Result<FunctionDec> {
+        let ctx = self.ctx("function_dec_inner");
+        let name = expect!(ctx, self.symbol());
+        then_expect!(ctx, self.paren_open());
+        let args = then_expect!(ctx, self.star(&|this: &mut Self| this.sorted_var()));
+        then_expect!(ctx, self.paren_close());
+        let sort = then_expect!(ctx, self.sort());
+        Ok(Ok(FunctionDec { name, sort, args }))
+    }
+
+    pub fn function_dec(&mut self) -> Result<FunctionDec> {
+        let ctx = self.ctx("function_dec");
+        expect!(ctx, self.paren_open());
+        let result = then_expect!(ctx, self.function_dec_inner());
+        then_expect!(ctx, self.paren_close());
+        Ok(Ok(result))
+    }
+
+    pub fn function_def(&mut self) -> Result<FunctionDef> {
+        let ctx = self.ctx("function_def");
+        let dec = expect!(ctx, self.function_dec_inner());
+        let body = then_expect!(ctx, self.term());
+        Ok(Ok(FunctionDef { dec, body }))
+    }
+
+    pub fn prop_literal(&mut self) -> Result<PropLiteral> {
+        let ctx = self.ctx("prop_literal");
+        self.alts(ctx, vec![
+            &|this: &mut Self| { let name = expect!(ctx, this.symbol()); Ok(Ok(PropLiteral::Positive(name))) },
+            &|this: &mut Self| {
+                expect!(ctx, this.paren_open());
+                then_expect!(ctx, this.exactly(Token::Symbol("not".into())));
+                let name = then_expect!(ctx, this.symbol());
+                then_expect!(ctx, this.paren_close());
+                Ok(Ok(PropLiteral::Negative(name)))
+            },
+        ])
+    }
+
+    pub fn command(&mut self) -> Result<ScriptCommand> {
+        let ctx = self.ctx("command");
+        expect!(ctx, self.paren_open());
+        let result = then_expect!(ctx, self.alts(ctx, vec![
+            &|this: &mut Self| {
+                expect!(ctx, this.exactly(Token::Symbol("assert".into())));
+                Ok(Ok(ScriptCommand::Assert(then_expect!(ctx, this.term()))))
+            },
+            &|this: &mut Self| {
+                expect!(ctx, this.exactly(Token::Symbol("check-sat".into())));
+                Ok(Ok(ScriptCommand::CheckSat))
+            },
+        ]));
+        then_expect!(ctx, self.paren_close());
+        Ok(Ok(result))
     }
 }
