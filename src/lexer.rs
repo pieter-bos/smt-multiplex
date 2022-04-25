@@ -49,15 +49,15 @@ pub enum TokenReaderErr {
     MalformedToken(String),
 }
 
-fn is_whitespace(c: char) -> bool {
+pub fn is_whitespace(c: char) -> bool {
     c == ' ' || c == '\n' || c == '\r' || c == '\t'
 }
 
-fn is_printable(c: char) -> bool {
+pub fn is_printable(c: char) -> bool {
     (' ' <= c && c <= '~') || !c.is_ascii()
 }
 
-fn is_letter(c: char) -> bool {
+pub fn is_letter(c: char) -> bool {
     match c {
         'a'..='z' => true,
         'A'..='Z' => true,
@@ -65,11 +65,11 @@ fn is_letter(c: char) -> bool {
     }
 }
 
-fn is_digit(c: char) -> bool {
+pub fn is_digit(c: char) -> bool {
     '0' <= c && c <= '9'
 }
 
-fn is_symbol_char(c: char) -> bool {
+pub fn is_symbol_char(c: char) -> bool {
     is_digit(c) || is_letter(c) || match c {
         '~' | '!' | '@' | '$' | '%' | '^' | '&' | '*' | '_' | '-' | '+' | '=' |
         '<' | '>' | '.' | '?' | '/' => true,
@@ -356,7 +356,7 @@ impl<R: Read> TokenReader<R> {
         }
     }
 
-    fn skip_whitespace_and_comments(&mut self) {
+    pub fn skip_whitespace_and_comments(&mut self) {
         loop {
             match self.peek() {
                 Some(c) if is_whitespace(c) => { self.read().unwrap(); },
@@ -369,7 +369,7 @@ impl<R: Read> TokenReader<R> {
     fn next_token(&mut self) -> Option<Token> {
         self.skip_whitespace_and_comments();
 
-        match self.read()? {
+        let result = match self.read()? {
             '_' => Some(Token::Underscore),
             '!' => Some(Token::ExclamationPoint),
             '(' => Some(Token::ParenOpen),
@@ -385,7 +385,12 @@ impl<R: Read> TokenReader<R> {
                 self.err = Some(TokenReaderErr::MalformedToken(format!("Token may not start with '{}'", other)));
                 None
             }
-        }
+        };
+
+        // Improve the starting position of parser rules.
+        self.skip_whitespace_and_comments();
+
+        result
     }
 }
 
