@@ -187,3 +187,39 @@ pub enum ScriptCommand {
     SetLogic(String),
     SetOption(Attribute),
 }
+
+pub enum GeneralFailure {
+    Unsupported,
+    Error(String),
+}
+
+pub type Response<Ok> = Result<Ok, GeneralFailure>;
+
+pub enum GeneralResponse {
+    Success,
+}
+
+pub enum CheckSatResponse {
+    Sat,
+    Unsat,
+    Unknown,
+}
+
+pub type EchoResponse = String;
+pub type GetAssertionsResponse = Vec<Term>;
+pub type GetAssignmentResponse = Vec<(String, bool)>;
+pub type GetInfoResponse = Vec<Attribute>;
+
+pub enum ModelResponse {
+    Func(FunctionDef),
+    RecFunc(FunctionDef),
+    RecFuncs(Vec<FunctionDec>, Vec<Term>),
+}
+
+pub type GetModelResponse = Vec<ModelResponse>;
+
+pub type GetOptionResponse = AttributeValue;
+pub type GetProofResponse = SExpr;
+pub type GetUnsatAssumptionsResponse = Vec<String>;
+pub type GetUnsatCoreResponse = Vec<String>;
+pub type GetValueResponse = Vec<(Term, Term)>;

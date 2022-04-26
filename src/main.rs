@@ -1,7 +1,11 @@
 mod lexer;
 mod parser;
 mod uninterpreted_ast;
+mod ast;
+
 mod display;
+
+mod smt_client;
 
 use std::fs::File;
 use std::io::BufReader;

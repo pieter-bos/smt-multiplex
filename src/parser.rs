@@ -1,4 +1,3 @@
-use std::fmt::{Display, Formatter};
 use std::io::Read;
 use std::result;
 use bigdecimal::BigDecimal;
@@ -58,7 +57,9 @@ pub enum UnrecoverableParseFailure {
 impl UnrecoverableParseFailure {
     fn context(self, ctx: Context) -> Self {
         UnrecoverableParseFailure::Context {
-            rule: ctx.rule, loc: ctx.loc, inner: Box::new(self)
+            rule: ctx.rule,
+            loc: ctx.loc,
+            inner: Box::new(self),
         }
     }
 }
@@ -75,7 +76,7 @@ pub struct Parser<R: Read> {
     buf: Option<lexer::Token>,
 }
 
-impl <R: Read> Parser<R> {
+impl<R: Read> Parser<R> {
     pub fn new(read: R) -> Self {
         Self::from_token_reader(lexer::TokenReader::new(read))
     }
@@ -83,7 +84,8 @@ impl <R: Read> Parser<R> {
     pub fn from_token_reader(mut lexer: lexer::TokenReader<R>) -> Self {
         lexer.skip_whitespace_and_comments();
         Self {
-            lexer, buf: None,
+            lexer,
+            buf: None,
         }
     }
 
@@ -134,9 +136,9 @@ impl <R: Read> Parser<R> {
 
         loop {
             match what(self) {
-                Err(unrec_err) => { return Err(unrec_err); },
-                Ok(Err(_)) => /* recover */ { return Ok(Ok(buf)); },
-                Ok(Ok(t)) => { buf.push(t); },
+                Err(unrec_err) => { return Err(unrec_err); }
+                Ok(Err(_)) => /* recover */ { return Ok(Ok(buf)); }
+                Ok(Ok(t)) => { buf.push(t); }
             }
         }
     }
@@ -148,9 +150,9 @@ impl <R: Read> Parser<R> {
 
         loop {
             match what(self) {
-                Err(unrec_err) => { return Err(unrec_err); },
-                Ok(Err(_)) => /* recover */ { return Ok(Ok(buf)); },
-                Ok(Ok(t)) => { buf.push(t); },
+                Err(unrec_err) => { return Err(unrec_err); }
+                Ok(Err(_)) => /* recover */ { return Ok(Ok(buf)); }
+                Ok(Ok(t)) => { buf.push(t); }
             }
         }
     }
@@ -270,11 +272,26 @@ impl <R: Read> Parser<R> {
     pub fn spec_constant(&mut self) -> Result<SpecConst> {
         let ctx = self.ctx("spec_constant");
         self.alts(ctx, vec![
-            &|this: &mut Self| { let n = expect!(ctx, this.numeral()); Ok(Ok(SpecConst::Numeral(n))) },
-            &|this: &mut Self| { let n = expect!(ctx, this.decimal()); Ok(Ok(SpecConst::Decimal(n))) },
-            &|this: &mut Self| { let n = expect!(ctx, this.hexadecimal()); Ok(Ok(SpecConst::Hexadecimal(n))) },
-            &|this: &mut Self| { let n = expect!(ctx, this.binary()); Ok(Ok(SpecConst::Binary(n))) },
-            &|this: &mut Self| { let n = expect!(ctx, this.string()); Ok(Ok(SpecConst::String(n))) },
+            &|this: &mut Self| {
+                let n = expect!(ctx, this.numeral());
+                Ok(Ok(SpecConst::Numeral(n)))
+            },
+            &|this: &mut Self| {
+                let n = expect!(ctx, this.decimal());
+                Ok(Ok(SpecConst::Decimal(n)))
+            },
+            &|this: &mut Self| {
+                let n = expect!(ctx, this.hexadecimal());
+                Ok(Ok(SpecConst::Hexadecimal(n)))
+            },
+            &|this: &mut Self| {
+                let n = expect!(ctx, this.binary());
+                Ok(Ok(SpecConst::Binary(n)))
+            },
+            &|this: &mut Self| {
+                let n = expect!(ctx, this.string());
+                Ok(Ok(SpecConst::String(n)))
+            },
         ])
     }
 
@@ -289,19 +306,40 @@ impl <R: Read> Parser<R> {
     pub fn s_expr(&mut self) -> Result<SExpr> {
         let ctx = self.ctx("s_expr");
         self.alts(ctx, vec![
-            &|this: &mut Self| { let c = expect!(ctx, this.spec_constant()); Ok(Ok(SExpr::Const(c))) },
-            &|this: &mut Self| { let symb = expect!(ctx, this.symbol()); Ok(Ok(SExpr::Symbol(symb))) },
-            &|this: &mut Self| { let res = expect!(ctx, this.reserved()); Ok(Ok(SExpr::Reserved(res))) },
-            &|this: &mut Self| { let kwd = expect!(ctx, this.keyword()); Ok(Ok(SExpr::Keyword(kwd))) },
-            &|this: &mut Self| { let args = expect!(ctx, this.s_expr_expr()); Ok(Ok(SExpr::Expr(args))) },
+            &|this: &mut Self| {
+                let c = expect!(ctx, this.spec_constant());
+                Ok(Ok(SExpr::Const(c)))
+            },
+            &|this: &mut Self| {
+                let symb = expect!(ctx, this.symbol());
+                Ok(Ok(SExpr::Symbol(symb)))
+            },
+            &|this: &mut Self| {
+                let res = expect!(ctx, this.reserved());
+                Ok(Ok(SExpr::Reserved(res)))
+            },
+            &|this: &mut Self| {
+                let kwd = expect!(ctx, this.keyword());
+                Ok(Ok(SExpr::Keyword(kwd)))
+            },
+            &|this: &mut Self| {
+                let args = expect!(ctx, this.s_expr_expr());
+                Ok(Ok(SExpr::Expr(args)))
+            },
         ])
     }
 
     pub fn index(&mut self) -> Result<Index> {
         let ctx = self.ctx("index");
         self.alts(ctx, vec![
-            &|this: &mut Self| { let n = expect!(ctx, this.numeral()); Ok(Ok(Index::Numeric(n))) },
-            &|this: &mut Self| { let s = expect!(ctx, this.symbol()); Ok(Ok(Index::Symbol(s))) },
+            &|this: &mut Self| {
+                let n = expect!(ctx, this.numeral());
+                Ok(Ok(Index::Numeric(n)))
+            },
+            &|this: &mut Self| {
+                let s = expect!(ctx, this.symbol());
+                Ok(Ok(Index::Symbol(s)))
+            },
         ])
     }
 
@@ -315,7 +353,10 @@ impl <R: Read> Parser<R> {
     pub fn identifier(&mut self) -> Result<Identifier> {
         let ctx = self.ctx("identifier");
         self.alts(ctx, vec![
-            &|this: &mut Self| { let name = expect!(ctx, this.symbol()); Ok(Ok(Identifier::Simple(name))) },
+            &|this: &mut Self| {
+                let name = expect!(ctx, this.symbol());
+                Ok(Ok(Identifier::Simple(name)))
+            },
             &|this: &mut Self| {
                 expect!(ctx, this.paren_open());
                 then_expect!(ctx, this.exactly(Token::Underscore));
@@ -329,9 +370,18 @@ impl <R: Read> Parser<R> {
     pub fn attribute_value(&mut self) -> Result<AttributeValue> {
         let ctx = self.ctx("attribute_value");
         self.alts(ctx, vec![
-            &|this: &mut Self| { let c = expect!(ctx, this.spec_constant()); Ok(Ok(AttributeValue::Const(c))) },
-            &|this: &mut Self| { let symb = expect!(ctx, this.symbol()); Ok(Ok(AttributeValue::Symbol(symb))) },
-            &|this: &mut Self| { let args = expect!(ctx, this.s_expr_expr()); Ok(Ok(AttributeValue::Expr(args))) },
+            &|this: &mut Self| {
+                let c = expect!(ctx, this.spec_constant());
+                Ok(Ok(AttributeValue::Const(c)))
+            },
+            &|this: &mut Self| {
+                let symb = expect!(ctx, this.symbol());
+                Ok(Ok(AttributeValue::Symbol(symb)))
+            },
+            &|this: &mut Self| {
+                let args = expect!(ctx, this.s_expr_expr());
+                Ok(Ok(AttributeValue::Expr(args)))
+            },
         ])
     }
 
@@ -350,14 +400,17 @@ impl <R: Read> Parser<R> {
         let ctx = self.ctx("sort");
 
         self.alts(ctx, vec![
-            &|this: &mut Self| { let name = expect!(ctx, this.identifier()); Ok(Ok(Sort::Name(name))) },
+            &|this: &mut Self| {
+                let name = expect!(ctx, this.identifier());
+                Ok(Ok(Sort::Name(name)))
+            },
             &|this: &mut Self| {
                 expect!(ctx, this.paren_open());
                 let name = then_expect!(ctx, this.identifier());
                 let args = then_expect!(ctx, this.plus(&|this: &mut Self| this.sort()));
                 then_expect!(ctx, this.paren_close());
                 Ok(Ok(Sort::Parametric(name, args)))
-            }
+            },
         ])
     }
 
@@ -371,7 +424,10 @@ impl <R: Read> Parser<R> {
     pub fn qual_identifier(&mut self) -> Result<QualifiedIdentifier> {
         let ctx = self.ctx("qual_identifier");
         self.alts(ctx, vec![
-            &|this: &mut Self| { let id = expect!(ctx, this.identifier()); Ok(Ok(QualifiedIdentifier::Simple(id))) },
+            &|this: &mut Self| {
+                let id = expect!(ctx, this.identifier());
+                Ok(Ok(QualifiedIdentifier::Simple(id)))
+            },
             &|this: &mut Self| {
                 expect!(ctx, this.paren_open());
                 then_expect!(ctx, this.exactly(Token::As));
@@ -403,7 +459,10 @@ impl <R: Read> Parser<R> {
     pub fn pattern(&mut self) -> Result<Pattern> {
         let ctx = self.ctx("pattern");
         self.alts(ctx, vec![
-            &|this: &mut Self| { let name = expect!(ctx, this.symbol()); Ok(Ok(Pattern::Binding(name))) },
+            &|this: &mut Self| {
+                let name = expect!(ctx, this.symbol());
+                Ok(Ok(Pattern::Binding(name)))
+            },
             &|this: &mut Self| {
                 expect!(ctx, this.paren_open());
                 let function = then_expect!(ctx, this.symbol());
@@ -426,8 +485,14 @@ impl <R: Read> Parser<R> {
     pub fn term(&mut self) -> Result<Term> {
         let ctx = self.ctx("term");
         let result = self.alts(ctx, vec![
-            &|this: &mut Self| { let c = expect!(ctx, this.spec_constant()); Ok(Ok(Term::Const(c))) },
-            &|this: &mut Self| { let name = expect!(ctx, this.symbol()); Ok(Ok(Term::Name(QualifiedIdentifier::Simple(Identifier::Simple(name))))) },
+            &|this: &mut Self| {
+                let c = expect!(ctx, this.spec_constant());
+                Ok(Ok(Term::Const(c)))
+            },
+            &|this: &mut Self| {
+                let name = expect!(ctx, this.symbol());
+                Ok(Ok(Term::Name(QualifiedIdentifier::Simple(Identifier::Simple(name)))))
+            },
             &|this: &mut Self| {
                 expect!(ctx, this.paren_open());
                 let result = this.alts(ctx, vec![
@@ -594,7 +659,10 @@ impl <R: Read> Parser<R> {
     pub fn prop_literal(&mut self) -> Result<PropLiteral> {
         let ctx = self.ctx("prop_literal");
         self.alts(ctx, vec![
-            &|this: &mut Self| { let name = expect!(ctx, this.symbol()); Ok(Ok(PropLiteral::Positive(name))) },
+            &|this: &mut Self| {
+                let name = expect!(ctx, this.symbol());
+                Ok(Ok(PropLiteral::Positive(name)))
+            },
             &|this: &mut Self| {
                 expect!(ctx, this.paren_open());
                 then_expect!(ctx, this.exactly(Token::Symbol("not".into())));
@@ -775,6 +843,294 @@ impl <R: Read> Parser<R> {
         then_expect!(ctx, self.paren_close());
         Ok(Ok(result))
     }
+
+    fn unsupported<T>(&mut self) -> Result<Response<T>> {
+        let ctx = self.ctx("unsupported");
+        expect!(ctx, self.exactly(Token::Symbol("unsupported".into())));
+        Ok(Ok(Err(GeneralFailure::Unsupported)))
+    }
+
+    fn error_inner<T>(&mut self) -> Result<Response<T>> {
+        let ctx = self.ctx("error_inner");
+        expect!(ctx, self.exactly(Token::Symbol("error".into())));
+        Ok(Ok(Err(GeneralFailure::Error(then_expect!(ctx, self.string())))))
+    }
+
+    fn error<T>(&mut self) -> Result<Response<T>> {
+        let ctx = self.ctx("error");
+        expect!(ctx, self.paren_open());
+        let err = then_expect!(ctx, self.error_inner());
+        then_expect!(ctx, self.paren_close());
+        Ok(Ok(err))
+    }
+
+    fn general_failure<T>(&mut self) -> Result<Response<T>> {
+        let ctx = self.ctx("general_failure");
+        self.alts(ctx, vec![
+            &|this: &mut Self| this.unsupported(),
+            &|this: &mut Self| this.error(),
+        ])
+    }
+
+    pub fn general_response(&mut self) -> Result<Response<GeneralResponse>> {
+        let ctx = self.ctx("general_response");
+        self.alts(ctx, vec![
+            &|this: &mut Self| {
+                expect!(ctx, this.exactly(Token::Symbol("success".into())));
+                Ok(Ok(Ok(GeneralResponse::Success)))
+            },
+            &|this: &mut Self| this.general_failure(),
+        ])
+    }
+
+    pub fn check_sat_response(&mut self) -> Result<Response<CheckSatResponse>> {
+        let ctx = self.ctx("check_sat_response");
+        self.alts(ctx, vec![
+            &|this: &mut Self| {
+                expect!(ctx, this.exactly(Token::Symbol("sat".into())));
+                Ok(Ok(Ok(CheckSatResponse::Sat)))
+            },
+            &|this: &mut Self| {
+                expect!(ctx, this.exactly(Token::Symbol("unsat".into())));
+                Ok(Ok(Ok(CheckSatResponse::Unsat)))
+            },
+            &|this: &mut Self| {
+                expect!(ctx, this.exactly(Token::Symbol("unknown".into())));
+                Ok(Ok(Ok(CheckSatResponse::Unknown)))
+            },
+            &|this: &mut Self| this.general_failure(),
+        ])
+    }
+
+    pub fn echo_response(&mut self) -> Result<Response<EchoResponse>> {
+        let ctx = self.ctx("echo_response");
+        self.alts(ctx, vec![
+            &|this: &mut Self| Ok(Ok(Ok(expect!(ctx, this.string())))),
+            &|this: &mut Self| this.general_failure(),
+        ])
+    }
+
+    pub fn get_assertions_response(&mut self) -> Result<Response<GetAssertionsResponse>> {
+        let ctx = self.ctx("get_assertions_response");
+        self.alts(ctx, vec![
+            &|this: &mut Self| this.unsupported(),
+            &|this: &mut Self| {
+                expect!(ctx, this.paren_open());
+                let res = then_expect!(ctx, this.alts(ctx, vec![
+                    &|this: &mut Self| this.error_inner(),
+                    &|this: &mut Self| Ok(Ok(Ok(expect!(ctx, this.star(&|this: &mut Self| this.term()))))),
+                ]));
+                then_expect!(ctx, this.paren_close());
+                Ok(Ok(res))
+            },
+        ])
+    }
+
+    pub fn bool_valuation_pair(&mut self) -> Result<(String, bool)> {
+        let ctx = self.ctx("valuation_pair");
+        expect!(ctx, self.paren_open());
+        let name = then_expect!(ctx, self.symbol());
+        let v = then_expect!(ctx, self.alts(ctx, vec![
+            &|this: &mut Self| { expect!(ctx, this.exactly(Token::Symbol("false".into()))); Ok(Ok(false)) },
+            &|this: &mut Self| { expect!(ctx, this.exactly(Token::Symbol("true".into()))); Ok(Ok(true)) },
+        ]));
+        then_expect!(ctx, self.paren_close());
+        Ok(Ok((name, v)))
+    }
+
+    pub fn get_assignment_response(&mut self) -> Result<Response<GetAssignmentResponse>> {
+        let ctx = self.ctx("get_assignment_response");
+        self.alts(ctx, vec![
+            &|this: &mut Self| this.unsupported(),
+            &|this: &mut Self| {
+                expect!(ctx, this.paren_open());
+                let res = then_expect!(ctx, this.alts(ctx, vec![
+                    &|this: &mut Self| this.error_inner(),
+                    &|this: &mut Self| {
+                        let pairs = expect!(ctx, this.star(&|this: &mut Self| this.bool_valuation_pair()));
+                        Ok(Ok(Ok(pairs)))
+                    },
+                ]));
+                then_expect!(ctx, this.paren_close());
+                Ok(Ok(res))
+            },
+        ])
+    }
+
+    pub fn get_info_response(&mut self) -> Result<Response<GetInfoResponse>> {
+        let ctx = self.ctx("get_info_response");
+        self.alts(ctx, vec![
+            &|this: &mut Self| this.unsupported(),
+            &|this: &mut Self| {
+                expect!(ctx, this.paren_open());
+                let res = then_expect!(ctx, this.alts(ctx, vec![
+                    &|this: &mut Self| this.error_inner(),
+                    &|this: &mut Self| {
+                        let pairs = expect!(ctx, this.star(&|this: &mut Self| this.attribute()));
+                        Ok(Ok(Ok(pairs)))
+                    },
+                ]));
+                then_expect!(ctx, this.paren_close());
+                Ok(Ok(res))
+            },
+        ])
+    }
+
+    pub fn model_response(&mut self) -> Result<ModelResponse> {
+        let ctx = self.ctx("model_response");
+        expect!(ctx, self.paren_open());
+        let res = then_expect!(ctx, self.alts(ctx, vec![
+            &|this: &mut Self| {
+                expect!(ctx, this.exactly(Token::Symbol("define-fun".into())));
+                let def = then_expect!(ctx, this.function_def());
+                Ok(Ok(ModelResponse::Func(def)))
+            },
+            &|this: &mut Self| {
+                expect!(ctx, this.exactly(Token::Symbol("define-fun-rec".into())));
+                let def = then_expect!(ctx, this.function_def());
+                Ok(Ok(ModelResponse::RecFunc(def)))
+            },
+            &|this: &mut Self| {
+                expect!(ctx, this.exactly(Token::Symbol("define-funs-rec".into())));
+                then_expect!(ctx, this.paren_open());
+                let decs = then_expect!(ctx, this.plus(&|this: &mut Self| this.function_dec()));
+                then_expect!(ctx, this.paren_close());
+                then_expect!(ctx, this.paren_open());
+                let bodies = then_expect!(ctx, this.plus(&|this: &mut Self| this.term()));
+                then_expect!(ctx, this.paren_close());
+                Ok(Ok(ModelResponse::RecFuncs(decs, bodies)))
+            },
+        ]));
+        then_expect!(ctx, self.paren_close());
+        Ok(Ok(res))
+    }
+
+    pub fn get_model_response(&mut self) -> Result<Response<GetModelResponse>> {
+        let ctx = self.ctx("get_model_response");
+        self.alts(ctx, vec![
+            &|this: &mut Self| this.unsupported(),
+            &|this: &mut Self| {
+                expect!(ctx, this.paren_open());
+                let res = then_expect!(ctx, this.alts(ctx, vec![
+                    &|this: &mut Self| this.error_inner(),
+                    &|this: &mut Self| {
+                        let pairs = expect!(ctx, this.star(&|this: &mut Self| this.model_response()));
+                        Ok(Ok(Ok(pairs)))
+                    },
+                ]));
+                then_expect!(ctx, this.paren_close());
+                Ok(Ok(res))
+            },
+        ])
+    }
+
+    pub fn get_option_response(&mut self) -> Result<Response<GetOptionResponse>> {
+        let ctx = self.ctx("get_option_response");
+        self.alts(ctx, vec![
+            &|this: &mut Self| this.unsupported(),
+            &|this: &mut Self| {
+                expect!(ctx, this.paren_open());
+                // This does not allow for option values of the form (error _*) other than (error "string")
+                let res = then_expect!(ctx, this.alts(ctx, vec![
+                    &|this: &mut Self| this.error_inner(),
+                    &|this: &mut Self| {
+                        let args = expect!(ctx, this.star(&|this: &mut Self| this.s_expr()));
+                        Ok(Ok(Ok(GetOptionResponse::Expr(args))))
+                    }
+                ]));
+                then_expect!(ctx, this.paren_close());
+                Ok(Ok(res))
+            },
+            &|this: &mut Self| { let v = expect!(ctx, this.attribute_value()); Ok(Ok(Ok(v))) },
+        ])
+    }
+
+    pub fn get_proof_response(&mut self) -> Result<Response<GetProofResponse>> {
+        let ctx = self.ctx("get_proof_response");
+        self.alts(ctx, vec![
+            &|this: &mut Self| this.unsupported(),
+            &|this: &mut Self| {
+                expect!(ctx, this.paren_open());
+                // This does not allow for proofs of the form (error _*) other than (error "string")
+                let res = then_expect!(ctx, this.alts(ctx, vec![
+                    &|this: &mut Self| this.error_inner(),
+                    &|this: &mut Self| {
+                        let args = expect!(ctx, this.star(&|this: &mut Self| this.s_expr()));
+                        Ok(Ok(Ok(GetProofResponse::Expr(args))))
+                    }
+                ]));
+                then_expect!(ctx, this.paren_close());
+                Ok(Ok(res))
+            },
+            &|this: &mut Self| { let v = expect!(ctx, this.s_expr()); Ok(Ok(Ok(v))) },
+        ])
+    }
+
+    pub fn get_unsat_assumptions_response(&mut self) -> Result<Response<GetUnsatAssumptionsResponse>> {
+        let ctx = self.ctx("get_unsat_assumptions_response");
+        self.alts(ctx, vec![
+            &|this: &mut Self| this.unsupported(),
+            &|this: &mut Self| {
+                expect!(ctx, this.paren_open());
+                let res = then_expect!(ctx, this.alts(ctx, vec![
+                    &|this: &mut Self| this.error_inner(),
+                    &|this: &mut Self| {
+                        let args = then_expect!(ctx, this.star(&|this: &mut Self| this.symbol()));
+                        Ok(Ok(Ok(args)))
+                    }
+                ]));
+                then_expect!(ctx, this.paren_close());
+                Ok(Ok(res))
+            },
+        ])
+    }
+
+    pub fn get_unsat_core_response(&mut self) -> Result<Response<GetUnsatCoreResponse>> {
+        let ctx = self.ctx("get_unsat_assumptions_response");
+        self.alts(ctx, vec![
+            &|this: &mut Self| this.unsupported(),
+            &|this: &mut Self| {
+                expect!(ctx, this.paren_open());
+                let res = then_expect!(ctx, this.alts(ctx, vec![
+                    &|this: &mut Self| this.error_inner(),
+                    &|this: &mut Self| {
+                        let args = then_expect!(ctx, this.star(&|this: &mut Self| this.symbol()));
+                        Ok(Ok(Ok(args)))
+                    }
+                ]));
+                then_expect!(ctx, this.paren_close());
+                Ok(Ok(res))
+            },
+        ])
+    }
+
+    pub fn valuation_pair(&mut self) -> Result<(Term, Term)> {
+        let ctx = self.ctx("valuation_pair");
+        expect!(ctx, self.paren_open());
+        let key = then_expect!(ctx, self.term());
+        let value = then_expect!(ctx, self.term());
+        then_expect!(ctx, self.paren_close());
+        Ok(Ok((key, value)))
+    }
+
+    pub fn get_value_response(&mut self) -> Result<Response<GetValueResponse>> {
+        let ctx = self.ctx("get_value_response");
+        self.alts(ctx, vec![
+            &|this: &mut Self| this.unsupported(),
+            &|this: &mut Self| {
+                expect!(ctx, this.paren_open());
+                let res = then_expect!(ctx, this.alts(ctx, vec![
+                    &|this: &mut Self| this.error_inner(),
+                    &|this: &mut Self| {
+                        let pairs = expect!(ctx, this.star(&|this: &mut Self| this.valuation_pair()));
+                        Ok(Ok(Ok(pairs)))
+                    },
+                ]));
+                then_expect!(ctx, this.paren_close());
+                Ok(Ok(res))
+            },
+        ])
+    }
 }
 
 pub struct ScriptParser<R: Read> {
@@ -782,7 +1138,7 @@ pub struct ScriptParser<R: Read> {
     err: Option<UnrecoverableParseFailure>,
 }
 
-impl <R: Read> ScriptParser<R> {
+impl<R: Read> ScriptParser<R> {
     pub fn new(read: R) -> Self {
         Self {
             parser: Parser::new(read),
@@ -795,7 +1151,7 @@ impl <R: Read> ScriptParser<R> {
     }
 }
 
-impl <R: Read> Iterator for ScriptParser<R> {
+impl<R: Read> Iterator for ScriptParser<R> {
     type Item = ScriptCommand;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -804,7 +1160,7 @@ impl <R: Read> Iterator for ScriptParser<R> {
             Err(e) => {
                 self.err = Some(e);
                 None
-            },
+            }
             Ok(Err(RecoverableParseError::Eof)) => {
                 self.err = None;
                 None
@@ -812,7 +1168,7 @@ impl <R: Read> Iterator for ScriptParser<R> {
             Ok(Err(e)) => {
                 self.err = Some(UnrecoverableParseFailure::NoBacktrack { rule: ctx.rule, loc: ctx.loc, inner: e });
                 None
-            },
+            }
             Ok(Ok(command)) => Some(command),
         }
     }
