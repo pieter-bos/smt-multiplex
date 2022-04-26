@@ -1,5 +1,5 @@
 use bigdecimal::BigDecimal;
-use bit_vec::BitVec;
+use bitvec::vec::BitVec;
 use num_bigint::BigUint;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -205,10 +205,10 @@ pub enum CheckSatResponse {
     Unknown,
 }
 
-pub type EchoResponse = String;
-pub type GetAssertionsResponse = Vec<Term>;
-pub type GetAssignmentResponse = Vec<(String, bool)>;
-pub type GetInfoResponse = Vec<Attribute>;
+pub struct EchoResponse(pub String);
+pub struct GetAssertionsResponse(pub Vec<Term>);
+pub struct GetAssignmentResponse(pub Vec<(String, bool)>);
+pub struct GetInfoResponse(pub Vec<Attribute>);
 
 pub enum ModelResponse {
     Func(FunctionDef),
@@ -216,10 +216,10 @@ pub enum ModelResponse {
     RecFuncs(Vec<FunctionDec>, Vec<Term>),
 }
 
-pub type GetModelResponse = Vec<ModelResponse>;
+pub struct GetModelResponse(pub Vec<ModelResponse>);
 
-pub type GetOptionResponse = AttributeValue;
-pub type GetProofResponse = SExpr;
-pub type GetUnsatAssumptionsResponse = Vec<String>;
-pub type GetUnsatCoreResponse = Vec<String>;
-pub type GetValueResponse = Vec<(Term, Term)>;
+pub struct GetOptionResponse(pub AttributeValue);
+pub struct GetProofResponse(pub SExpr);
+pub struct GetUnsatAssumptionsResponse(pub Vec<String>);
+pub struct GetUnsatCoreResponse(pub Vec<String>);
+pub struct GetValueResponse(pub Vec<(Term, Term)>);

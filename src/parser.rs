@@ -1,7 +1,7 @@
 use std::io::Read;
 use std::result;
 use bigdecimal::BigDecimal;
-use bit_vec::BitVec;
+use bitvec::vec::BitVec;
 use num_bigint::BigUint;
 use crate::{lexer, Token};
 use crate::parser::PeekResult::*;
@@ -905,7 +905,7 @@ impl<R: Read> Parser<R> {
     pub fn echo_response(&mut self) -> Result<Response<EchoResponse>> {
         let ctx = self.ctx("echo_response");
         self.alts(ctx, vec![
-            &|this: &mut Self| Ok(Ok(Ok(expect!(ctx, this.string())))),
+            &|this: &mut Self| Ok(Ok(Ok(EchoResponse(expect!(ctx, this.string()))))),
             &|this: &mut Self| this.general_failure(),
         ])
     }
@@ -918,7 +918,7 @@ impl<R: Read> Parser<R> {
                 expect!(ctx, this.paren_open());
                 let res = then_expect!(ctx, this.alts(ctx, vec![
                     &|this: &mut Self| this.error_inner(),
-                    &|this: &mut Self| Ok(Ok(Ok(expect!(ctx, this.star(&|this: &mut Self| this.term()))))),
+                    &|this: &mut Self| Ok(Ok(Ok(GetAssertionsResponse(expect!(ctx, this.star(&|this: &mut Self| this.term())))))),
                 ]));
                 then_expect!(ctx, this.paren_close());
                 Ok(Ok(res))
@@ -948,7 +948,7 @@ impl<R: Read> Parser<R> {
                     &|this: &mut Self| this.error_inner(),
                     &|this: &mut Self| {
                         let pairs = expect!(ctx, this.star(&|this: &mut Self| this.bool_valuation_pair()));
-                        Ok(Ok(Ok(pairs)))
+                        Ok(Ok(Ok(GetAssignmentResponse(pairs))))
                     },
                 ]));
                 then_expect!(ctx, this.paren_close());
@@ -967,7 +967,7 @@ impl<R: Read> Parser<R> {
                     &|this: &mut Self| this.error_inner(),
                     &|this: &mut Self| {
                         let pairs = expect!(ctx, this.star(&|this: &mut Self| this.attribute()));
-                        Ok(Ok(Ok(pairs)))
+                        Ok(Ok(Ok(GetInfoResponse(pairs))))
                     },
                 ]));
                 then_expect!(ctx, this.paren_close());
@@ -1015,7 +1015,7 @@ impl<R: Read> Parser<R> {
                     &|this: &mut Self| this.error_inner(),
                     &|this: &mut Self| {
                         let pairs = expect!(ctx, this.star(&|this: &mut Self| this.model_response()));
-                        Ok(Ok(Ok(pairs)))
+                        Ok(Ok(Ok(GetModelResponse(pairs))))
                     },
                 ]));
                 then_expect!(ctx, this.paren_close());
@@ -1035,13 +1035,13 @@ impl<R: Read> Parser<R> {
                     &|this: &mut Self| this.error_inner(),
                     &|this: &mut Self| {
                         let args = expect!(ctx, this.star(&|this: &mut Self| this.s_expr()));
-                        Ok(Ok(Ok(GetOptionResponse::Expr(args))))
+                        Ok(Ok(Ok(GetOptionResponse(AttributeValue::Expr(args)))))
                     }
                 ]));
                 then_expect!(ctx, this.paren_close());
                 Ok(Ok(res))
             },
-            &|this: &mut Self| { let v = expect!(ctx, this.attribute_value()); Ok(Ok(Ok(v))) },
+            &|this: &mut Self| { let v = expect!(ctx, this.attribute_value()); Ok(Ok(Ok(GetOptionResponse(v)))) },
         ])
     }
 
@@ -1056,13 +1056,13 @@ impl<R: Read> Parser<R> {
                     &|this: &mut Self| this.error_inner(),
                     &|this: &mut Self| {
                         let args = expect!(ctx, this.star(&|this: &mut Self| this.s_expr()));
-                        Ok(Ok(Ok(GetProofResponse::Expr(args))))
+                        Ok(Ok(Ok(GetProofResponse(SExpr::Expr(args)))))
                     }
                 ]));
                 then_expect!(ctx, this.paren_close());
                 Ok(Ok(res))
             },
-            &|this: &mut Self| { let v = expect!(ctx, this.s_expr()); Ok(Ok(Ok(v))) },
+            &|this: &mut Self| { let v = expect!(ctx, this.s_expr()); Ok(Ok(Ok(GetProofResponse(v)))) },
         ])
     }
 
@@ -1076,7 +1076,7 @@ impl<R: Read> Parser<R> {
                     &|this: &mut Self| this.error_inner(),
                     &|this: &mut Self| {
                         let args = then_expect!(ctx, this.star(&|this: &mut Self| this.symbol()));
-                        Ok(Ok(Ok(args)))
+                        Ok(Ok(Ok(GetUnsatAssumptionsResponse(args))))
                     }
                 ]));
                 then_expect!(ctx, this.paren_close());
@@ -1095,7 +1095,7 @@ impl<R: Read> Parser<R> {
                     &|this: &mut Self| this.error_inner(),
                     &|this: &mut Self| {
                         let args = then_expect!(ctx, this.star(&|this: &mut Self| this.symbol()));
-                        Ok(Ok(Ok(args)))
+                        Ok(Ok(Ok(GetUnsatCoreResponse(args))))
                     }
                 ]));
                 then_expect!(ctx, this.paren_close());
@@ -1123,7 +1123,7 @@ impl<R: Read> Parser<R> {
                     &|this: &mut Self| this.error_inner(),
                     &|this: &mut Self| {
                         let pairs = expect!(ctx, this.star(&|this: &mut Self| this.valuation_pair()));
-                        Ok(Ok(Ok(pairs)))
+                        Ok(Ok(Ok(GetValueResponse(pairs))))
                     },
                 ]));
                 then_expect!(ctx, this.paren_close());

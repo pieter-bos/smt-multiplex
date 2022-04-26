@@ -1,8 +1,8 @@
 use num_bigint::{BigInt, BigUint};
 use bigdecimal::{BigDecimal, Num};
-use bit_vec::BitVec;
 use utf8_read::{Reader, Char};
 use std::io::{Read};
+use bitvec::vec::BitVec;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Token {
